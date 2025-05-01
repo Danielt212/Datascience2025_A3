@@ -4,7 +4,7 @@ import seaborn as sns
 from load_data import load_data
 
 def analyze_data():
-        dfs = load_data()
+    dfs = load_data()
     
     train_df = dfs['train']
     attributes_df = dfs['attributes']
@@ -41,12 +41,17 @@ def analyze_data():
     plt.close()
     
     # 6. Top-5 most occurring brand names
-    # First, we need to extract brand names from attributes
-    brand_attributes = attributes_df[attributes_df['name'].str.lower() == 'brand']
-    brand_counts = brand_attributes['value'].value_counts().head(5)
+    # First, let's see what attribute names might contain brand information
+    brand_related_attributes = attributes_df[attributes_df['name'].str.contains('brand|manufacturer|maker', case=False, na=False)]
+    print("\nSample of brand-related attributes:")
+    print(brand_related_attributes[['name', 'value']].head(10))
+    
+    # Count occurrences of each brand
+    brand_counts = brand_related_attributes['value'].value_counts().head(6)
     print("\n6. Top-5 most occurring brand names:")
     for brand, count in brand_counts.items():
         print(f"   {brand}: {count} occurrences")
+
 
 if __name__ == "__main__":
     analyze_data() 
