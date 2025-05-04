@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from Week10.load_data import load_data
+from load_data import load_data
 
 def analyze_data():
     dfs = load_data()
