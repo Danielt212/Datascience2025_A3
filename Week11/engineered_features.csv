@@ -1,0 +1,101 @@
+query,product_uid,relevance,tfidf_similarity,spacy_similarity,attribute_matches
+angle bracket,100001,3.0,0.0,0.0,0.0
+l bracket,100001,2.5,0.0,0.0,0.0
+deck over,100002,3.0,0.0,0.0,0.0
+rain shower head,100005,2.33,0.0,0.0,0.0
+shower only faucet,100005,2.67,0.0,0.0,0.0
+convection otr,100006,3.0,0.0,0.0,0.0
+microwave over stove,100006,2.67,0.0,0.0,0.0
+microwaves,100006,3.0,0.0,0.0,0.0
+emergency light,100007,2.67,0.0,0.0,0.0
+mdf 3/4,100009,3.0,0.0,0.0,0.0
+steele stake,100010,2.67,0.0,0.0,0.0
+briggs and stratton lawn mower,100011,3.0,0.0,0.0,0.0
+gas mowe,100011,3.0,0.0,0.0,0.0
+honda mower,100011,2.0,0.0,0.0,0.0
+hampton bay chestnut pull up shade,100012,2.67,0.0,0.0,0.0
+disposer,100013,2.67,0.0,0.0,0.0
+grill gazebo,100016,3.0,0.0,0.0,0.0
+door guards,100017,1.0,0.0,0.0,0.0
+metal plate cover gcfi,100017,1.67,0.0,0.0,0.0
+radiator grate,100017,2.33,0.0,0.0,0.0
+windows screens,100017,2.33,0.0,0.0,0.0
+1x1 rail decorative wood,100019,1.33,0.0,0.0,0.0
+4*8 beadboard paneling,100019,2.67,0.0,0.0,0.0
+4x8wood paneling,100019,2.33,0.0,0.0,0.0
+MDF 4x8,100019,1.33,0.0,0.0,0.0
+wainscot chair rail,100019,2.33,0.0,0.0,0.0
+wainscot plank paneling,100019,2.33,0.0,0.0,0.0
+lawn sprkinler,100021,2.0,0.0,0.0,0.0
+rainbird sprinkler,100021,2.33,0.0,0.0,0.0
+PLATFORM FOR WASHERS,100022,2.67,0.0,0.0,0.0
+samsung front load washer 3.7,100022,2.0,0.0,0.0,0.0
+upholstery washing machines with steam,100022,2.33,0.0,0.0,0.0
+CONCRETE & MASONRY CLEANER & ETCHER,100023,3.0,0.0,0.0,0.0
+concrete for ponds,100023,2.0,0.0,0.0,0.0
+flexlock for cracks,100023,2.0,0.0,0.0,0.0
+Belgium block pavers,100026,2.0,0.0,0.0,0.0
+ourdoor patio tile,100026,2.33,0.0,0.0,0.0
+insulation roll,100027,2.33,0.0,0.0,0.0
+6ft h bamboo fencing,100028,2.0,0.0,0.0,0.0
+balcony privacy screen,100028,2.67,0.0,0.0,0.0
+bamboo,100028,1.67,0.0,0.0,0.0
+privacy lattice panels,100028,2.33,0.0,0.0,0.0
+privacy panels,100028,1.67,0.0,0.0,0.0
+chalk paint,100029,3.0,0.0,0.0,0.0
+8 4616809045 9,100030,1.67,0.0,0.0,0.0
+shelf bracket,100030,3.0,0.0,0.0,0.0
+white 4shelves,100030,1.67,0.0,0.0,0.0
+6 teir shelving,100033,3.0,0.0,0.0,0.0
+hdx wire shelving,100033,3.0,0.0,0.0,0.0
+kitchen  cabinet finishes,100033,1.0,0.0,0.0,0.0
+angle bracket,100001,3.0,0.0,0.0,0.0
+l bracket,100001,2.5,0.0,0.0,0.0
+deck over,100002,3.0,0.0,0.0,0.0
+rain shower head,100005,2.33,0.0,0.0,0.0
+shower only faucet,100005,2.67,0.0,0.0,0.0
+convection otr,100006,3.0,0.0,0.0,0.0
+microwave over stove,100006,2.67,0.0,0.0,0.0
+microwaves,100006,3.0,0.0,0.0,0.0
+emergency light,100007,2.67,0.0,0.0,0.0
+mdf 3/4,100009,3.0,0.0,0.0,0.0
+steele stake,100010,2.67,0.0,0.0,0.0
+briggs and stratton lawn mower,100011,3.0,0.0,0.0,0.0
+gas mowe,100011,3.0,0.0,0.0,0.0
+honda mower,100011,2.0,0.0,0.0,0.0
+hampton bay chestnut pull up shade,100012,2.67,0.0,0.0,0.0
+disposer,100013,2.67,0.0,0.0,0.0
+grill gazebo,100016,3.0,0.0,0.0,0.0
+door guards,100017,1.0,0.0,0.0,0.0
+metal plate cover gcfi,100017,1.67,0.0,0.0,0.0
+radiator grate,100017,2.33,0.0,0.0,0.0
+windows screens,100017,2.33,0.0,0.0,0.0
+1x1 rail decorative wood,100019,1.33,0.0,0.0,0.0
+4*8 beadboard paneling,100019,2.67,0.0,0.0,0.0
+4x8wood paneling,100019,2.33,0.0,0.0,0.0
+MDF 4x8,100019,1.33,0.0,0.0,0.0
+wainscot chair rail,100019,2.33,0.0,0.0,0.0
+wainscot plank paneling,100019,2.33,0.0,0.0,0.0
+lawn sprkinler,100021,2.0,0.0,0.0,0.0
+rainbird sprinkler,100021,2.33,0.0,0.0,0.0
+PLATFORM FOR WASHERS,100022,2.67,0.0,0.0,0.0
+samsung front load washer 3.7,100022,2.0,0.0,0.0,0.0
+upholstery washing machines with steam,100022,2.33,0.0,0.0,0.0
+CONCRETE & MASONRY CLEANER & ETCHER,100023,3.0,0.0,0.0,0.0
+concrete for ponds,100023,2.0,0.0,0.0,0.0
+flexlock for cracks,100023,2.0,0.0,0.0,0.0
+Belgium block pavers,100026,2.0,0.0,0.0,0.0
+ourdoor patio tile,100026,2.33,0.0,0.0,0.0
+insulation roll,100027,2.33,0.0,0.0,0.0
+6ft h bamboo fencing,100028,2.0,0.0,0.0,0.0
+balcony privacy screen,100028,2.67,0.0,0.0,0.0
+bamboo,100028,1.67,0.0,0.0,0.0
+privacy lattice panels,100028,2.33,0.0,0.0,0.0
+privacy panels,100028,1.67,0.0,0.0,0.0
+chalk paint,100029,3.0,0.0,0.0,0.0
+8 4616809045 9,100030,1.67,0.0,0.0,0.0
+shelf bracket,100030,3.0,0.0,0.0,0.0
+white 4shelves,100030,1.67,0.0,0.0,0.0
+6 teir shelving,100033,3.0,0.0,0.0,0.0
+hdx wire shelving,100033,3.0,0.0,0.0,0.0
+kitchen  cabinet finishes,100033,1.0,0.0,0.0,0.0

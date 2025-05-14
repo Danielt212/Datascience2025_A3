@@ -1,0 +1,30 @@
+# Data folder
+Data/
+.datascience2025_A3/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Intermediate results
+intermediate_results/
+engineered_features_temp.csv
+engineered_features.csv
