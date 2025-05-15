@@ -41,327 +41,172 @@ class FeatureEngineering:
         # Initialize TF-IDF vectorizer with limited features
         self.tfidf = TfidfVectorizer(stop_words='english', max_features=5000)
         
-    def prepare_product_text(self):
-        """Combine product title, description, and attributes into a single text field"""
-        print("\nPreparing product text...")
-        # Create a dictionary of product descriptions
-        product_texts = {}
+        # Create features DataFrame
+        self.features_df = self.train_df[['search_term', 'product_uid', 'relevance']].copy()
+        self.features_df['tfidf_similarity'] = 0.0
+        self.features_df['spacy_similarity'] = 0.0
+        self.features_df['attribute_matches'] = 0.0
         
-        # Add product descriptions
-        for _, row in self.product_descriptions_df.iterrows():
-            product_texts[row['product_uid']] = row['product_description']
-        
-        # Add attributes
-        for _, row in self.attributes_df.iterrows():
-            product_uid = row['product_uid']
-            if product_uid in product_texts:
-                product_texts[product_uid] += f" {row['name']} {row['value']}"
-            else:
-                product_texts[product_uid] = f"{row['name']} {row['value']}"
-        
-        return product_texts
-    
-    def calculate_tfidf_similarity(self, product_texts):
-        """Calculate TF-IDF similarity between queries and products"""
-        print("\nCalculating TF-IDF similarities...")
-        # Get unique queries and products
-        queries = self.train_df['search_term'].unique()
-        products = list(product_texts.keys())
-        
-        # Take a sample of queries for testing (e.g., first 1000)
-        sample_size = 1000  # Adjust this number as needed
-        queries = queries[:sample_size]
-        print(f"Processing {len(queries)} queries...")
-        
-        # Process in smaller batches
-        batch_size = 100
-        chunk_size = 1000  # Save results every 1000 queries
-        
-        # Create directory for intermediate results if it doesn't exist
+        # Create directory for intermediate results
         os.makedirs('intermediate_results', exist_ok=True)
+    
+    def prepare_product_text(self, product_id):
+        # Get product description
+        description = self.product_descriptions_df[
+            self.product_descriptions_df['product_uid'] == product_id
+        ]['product_description'].iloc[0]
         
-        for i in range(0, len(queries), batch_size):
-            batch_queries = queries[i:i + batch_size]
-            print(f"Processing queries {i} to {i + len(batch_queries)}...")
+        # Get product attributes
+        attributes = self.attributes_df[
+            self.attributes_df['product_uid'] == product_id
+        ]
+        
+        # Combine description and attributes
+        attribute_text = ' '.join([
+            f"{row['name']} {row['value']}"
+            for _, row in attributes.iterrows()
+        ])
+        
+        return f"{description} {attribute_text}"
+    
+    def calculate_tfidf_similarity(self, queries, products, batch_size=100):
+        print("Calculating TF-IDF similarities...")
+        # Fit TF-IDF vectorizer on all product texts
+        all_product_texts = [self.prepare_product_text(pid) for pid in products['product_uid'].unique()]
+        self.tfidf.fit(all_product_texts)
+        
+        # Process queries in batches
+        for i in tqdm(range(0, len(queries), batch_size), desc="Processing TF-IDF batches"):
+            batch_queries = queries.iloc[i:i+batch_size]
+            batch_products = products[products['product_uid'].isin(batch_queries['product_uid'])]
             
-            # Create TF-IDF matrix for batch of queries
-            query_tfidf = self.tfidf.fit_transform(batch_queries)
+            # Prepare texts
+            query_texts = batch_queries['search_term'].tolist()
+            product_texts = [self.prepare_product_text(pid) for pid in batch_products['product_uid']]
             
-            # Create TF-IDF matrix for products
-            product_texts_list = [product_texts[pid] for pid in products]
-            product_tfidf = self.tfidf.transform(product_texts_list)
+            # Transform texts to TF-IDF vectors
+            query_vectors = self.tfidf.transform(query_texts)
+            product_vectors = self.tfidf.transform(product_texts)
             
-            # Calculate cosine similarity
-            similarities = cosine_similarity(query_tfidf, product_tfidf)
+            # Calculate similarities
+            similarities = cosine_similarity(query_vectors, product_vectors)
             
-            # Save results for this batch
-            batch_results = {}
-            for j, query in enumerate(batch_queries):
-                batch_results[query] = dict(zip(products, similarities[j]))
-            
-            # Save batch results
-            chunk_num = i // chunk_size
-            with open(f'intermediate_results/tfidf_chunk_{chunk_num}.json', 'a') as f:
-                json.dump(batch_results, f)
-                f.write('\n')
+            # Update the main DataFrame with calculated similarities
+            for idx, (_, row) in enumerate(batch_queries.iterrows()):
+                product_idx = batch_products[batch_products['product_uid'] == row['product_uid']].index[0]
+                self.features_df.loc[
+                    (self.features_df['search_term'] == row['search_term']) & 
+                    (self.features_df['product_uid'] == row['product_uid']),
+                    'tfidf_similarity'
+                ] = similarities[idx, product_idx]
             
             # Clear memory
-            del query_tfidf, product_tfidf, similarities, batch_results
+            del query_vectors, product_vectors, similarities
             gc.collect()
-        
-        return None  # Results are saved in files
     
-    def load_tfidf_similarities(self, query):
-        """Load TF-IDF similarities for a specific query from saved files"""
-        chunk_num = 0
-        while True:
-            try:
-                with open(f'intermediate_results/tfidf_chunk_{chunk_num}.json', 'r') as f:
-                    for line in f:
-                        chunk_data = json.loads(line)
-                        if query in chunk_data:
-                            return chunk_data[query]
-            except FileNotFoundError:
-                break
-            chunk_num += 1
-        return {}
-    
-    def calculate_spacy_similarity(self, product_texts):
-        """Calculate semantic similarity using spaCy"""
-        print("\nCalculating spaCy similarities...")
-        
-        # Take a sample of the training data
-        sample_size = 1000  # Adjust this number as needed
-        sample_df = self.train_df.head(sample_size)
-        print(f"Processing {len(sample_df)} rows...")
-        
-        # Process in smaller batches
-        batch_size = 50
-        chunk_size = 1000  # Save results every 1000 rows
-        
-        for i in tqdm(range(0, len(sample_df), batch_size)):
-            batch_df = sample_df.iloc[i:i + batch_size]
-            batch_results = {}
+    def calculate_spacy_similarity(self, queries, products, batch_size=50):
+        print("Calculating SpaCy similarities...")
+        # Process in batches
+        for i in tqdm(range(0, len(queries), batch_size), desc="Processing SpaCy batches"):
+            batch = queries.iloc[i:i+batch_size]
             
-            for _, row in batch_df.iterrows():
+            # Calculate similarities
+            similarities = []
+            for _, row in batch.iterrows():
                 query = row['search_term']
-                product_uid = row['product_uid']
+                product_id = row['product_uid']
+                product_text = self.prepare_product_text(product_id)
                 
-                if product_uid in product_texts:
-                    query_doc = self.nlp(query)
-                    product_doc = self.nlp(product_texts[product_uid])
-                    similarity = query_doc.similarity(product_doc)
-                    batch_results[(query, product_uid)] = similarity
+                # Process texts with spaCy
+                query_doc = self.nlp(query)
+                product_doc = self.nlp(product_text)
+                
+                # Calculate similarity
+                similarity = query_doc.similarity(product_doc)
+                similarities.append(similarity)
             
-            # Save batch results
-            chunk_num = i // chunk_size
-            with open(f'intermediate_results/spacy_chunk_{chunk_num}.json', 'a') as f:
-                json.dump(batch_results, f)
-                f.write('\n')
+            # Update the main DataFrame with calculated similarities
+            for idx, (_, row) in enumerate(batch.iterrows()):
+                self.features_df.loc[
+                    (self.features_df['search_term'] == row['search_term']) & 
+                    (self.features_df['product_uid'] == row['product_uid']),
+                    'spacy_similarity'
+                ] = similarities[idx]
             
             # Clear memory
-            del batch_results
+            del similarities
             gc.collect()
-        
-        return None  # Results are saved in files
     
-    def load_spacy_similarities(self, query, product_uid):
-        """Load spaCy similarities for a specific query-product pair from saved files"""
-        chunk_num = 0
-        while True:
-            try:
-                with open(f'intermediate_results/spacy_chunk_{chunk_num}.json', 'r') as f:
-                    for line in f:
-                        chunk_data = json.loads(line)
-                        if (query, product_uid) in chunk_data:
-                            return chunk_data[(query, product_uid)]
-            except FileNotFoundError:
-                break
-            chunk_num += 1
-        return 0
-    
-    def calculate_attribute_matches(self):
-        """Calculate number of query terms that match product attributes"""
-        print("\nCalculating attribute matches...")
-        
-        # Take a sample of the training data
-        sample_size = 1000  # Adjust this number as needed
-        sample_df = self.train_df.head(sample_size)
-        print(f"Processing {len(sample_df)} rows...")
-        
-        # Process in smaller batches
-        batch_size = 100
-        chunk_size = 1000  # Save results every 1000 rows
-        
-        for i in tqdm(range(0, len(sample_df), batch_size)):
-            batch_df = sample_df.iloc[i:i + batch_size]
-            batch_results = {}
+    def calculate_attribute_matches(self, queries, products, attributes, batch_size=100):
+        print("Calculating attribute matches...")
+        # Process in batches
+        for i in tqdm(range(0, len(queries), batch_size), desc="Processing attribute matches"):
+            batch = queries.iloc[i:i+batch_size]
             
-            for _, row in batch_df.iterrows():
+            # Calculate matches
+            matches = []
+            for _, row in batch.iterrows():
                 query = row['search_term'].lower()
-                product_uid = row['product_uid']
+                product_id = row['product_uid']
                 
-                # Get attributes for this product
-                product_attrs = self.attributes_df[self.attributes_df['product_uid'] == product_uid]
+                # Get product attributes
+                product_attrs = attributes[attributes['product_uid'] == product_id]
                 
                 # Count matches in attribute names and values
-                name_matches = sum(1 for name in product_attrs['name'].str.lower() 
-                                 if any(term in name for term in query.split()))
-                value_matches = sum(1 for value in product_attrs['value'].str.lower() 
-                                  if any(term in value for term in query.split()))
+                name_matches = sum(1 for name in product_attrs['name'] if any(term in name.lower() for term in query.split()))
+                value_matches = sum(1 for value in product_attrs['value'] if any(term in str(value).lower() for term in query.split()))
                 
-                batch_results[(query, product_uid)] = name_matches + value_matches
+                matches.append(name_matches + value_matches)
             
-            # Save batch results
-            chunk_num = i // chunk_size
-            with open(f'intermediate_results/attribute_chunk_{chunk_num}.json', 'a') as f:
-                json.dump(batch_results, f)
-                f.write('\n')
+            # Update the main DataFrame with calculated matches
+            for idx, (_, row) in enumerate(batch.iterrows()):
+                self.features_df.loc[
+                    (self.features_df['search_term'] == row['search_term']) & 
+                    (self.features_df['product_uid'] == row['product_uid']),
+                    'attribute_matches'
+                ] = matches[idx]
             
             # Clear memory
-            del batch_results
+            del matches
             gc.collect()
-        
-        return None  # Results are saved in files
     
-    def load_attribute_matches(self, query, product_uid):
-        """Load attribute matches for a specific query-product pair from saved files"""
-        chunk_num = 0
-        while True:
-            try:
-                with open(f'intermediate_results/attribute_chunk_{chunk_num}.json', 'r') as f:
-                    for line in f:
-                        chunk_data = json.loads(line)
-                        if (query, product_uid) in chunk_data:
-                            return chunk_data[(query, product_uid)]
-            except FileNotFoundError:
-                break
-            chunk_num += 1
-        return 0
-    
-    def evaluate_features(self):
-        """Evaluate the effectiveness of each feature"""
-        print("\nStarting feature evaluation...")
+    def evaluate_features(self, features_df):
+        print("\nFeature Evaluation:")
+        print("------------------")
         
-        # Calculate features if not already done
-        if not os.path.exists('intermediate_results'):
-            print("Calculating initial features...")
-            product_texts = self.prepare_product_text()
-            self.calculate_tfidf_similarity(product_texts)
-            self.calculate_spacy_similarity(product_texts)
-            self.calculate_attribute_matches()
-            del product_texts
-            gc.collect()
-        
-        print("\nLoading similarities into memory...")
-        # Load all similarities into memory
-        tfidf_similarities = {}
-        spacy_similarities = {}
-        attribute_matches = {}
-        
-        # Load TF-IDF similarities
-        chunk_num = 0
-        while True:
-            try:
-                with open(f'intermediate_results/tfidf_chunk_{chunk_num}.json', 'r') as f:
-                    for line in f:
-                        chunk_data = json.loads(line)
-                        tfidf_similarities.update(chunk_data)
-            except FileNotFoundError:
-                break
-            chunk_num += 1
-        
-        # Load spaCy similarities
-        chunk_num = 0
-        while True:
-            try:
-                with open(f'intermediate_results/spacy_chunk_{chunk_num}.json', 'r') as f:
-                    for line in f:
-                        chunk_data = json.loads(line)
-                        spacy_similarities.update(chunk_data)
-            except FileNotFoundError:
-                break
-            chunk_num += 1
-        
-        # Load attribute matches
-        chunk_num = 0
-        while True:
-            try:
-                with open(f'intermediate_results/attribute_chunk_{chunk_num}.json', 'r') as f:
-                    for line in f:
-                        chunk_data = json.loads(line)
-                        attribute_matches.update(chunk_data)
-            except FileNotFoundError:
-                break
-            chunk_num += 1
-        
-        print("\nCreating feature DataFrame...")
-        # Use the same sample size as in other methods
-        sample_size = 50  # Small sample for testing
-        sample_df = self.train_df.head(sample_size)
-        print(f"Processing {len(sample_df)} rows...")
-        
-        # Process in smaller batches
-        batch_size = 10  # Smaller batch size for more frequent updates
-        features = []
-        
-        for i in range(0, len(sample_df), batch_size):
-            print(f"Processing batch {i//batch_size + 1} of {(len(sample_df) + batch_size - 1)//batch_size}")
-            batch_df = sample_df.iloc[i:i + batch_size]
-            
-            for _, row in batch_df.iterrows():
-                query = row['search_term']
-                product_uid = row['product_uid']
-                relevance = row['relevance']
-                
-                # Get similarities from memory
-                tfidf_sim = tfidf_similarities.get(query, {}).get(product_uid, 0)
-                spacy_sim = spacy_similarities.get((query, product_uid), 0)
-                attr_matches = attribute_matches.get((query, product_uid), 0)
-                
-                feature_dict = {
-                    'query': query,
-                    'product_uid': product_uid,
-                    'relevance': relevance,
-                    'tfidf_similarity': tfidf_sim,
-                    'spacy_similarity': spacy_sim,
-                    'attribute_matches': attr_matches
-                }
-                features.append(feature_dict)
-            
-            # Save intermediate results
-            if len(features) >= batch_size:
-                temp_df = pd.DataFrame(features)
-                temp_df.to_csv('engineered_features_temp.csv', mode='a', header=not os.path.exists('engineered_features_temp.csv'), index=False)
-                features = []
-                gc.collect()
-        
-        # Save any remaining features
-        if features:
-            temp_df = pd.DataFrame(features)
-            temp_df.to_csv('engineered_features_temp.csv', mode='a', header=not os.path.exists('engineered_features_temp.csv'), index=False)
-        
-        # Load final results for correlation analysis
-        print("\nCalculating feature correlations...")
-        final_df = pd.read_csv('engineered_features_temp.csv')
-        
-        # Convert relevance to float and select only numeric columns for correlation
-        numeric_cols = ['relevance', 'tfidf_similarity', 'spacy_similarity', 'attribute_matches']
-        final_df[numeric_cols] = final_df[numeric_cols].astype(float)
-        
-        # Calculate correlations only for numeric columns
-        correlations = final_df[numeric_cols].corr()['relevance'].sort_values(ascending=False)
-        print("\nFeature correlations with relevance:")
+        # Calculate correlations with relevance score
+        correlations = features_df[['tfidf_similarity', 'spacy_similarity', 'attribute_matches', 'relevance']].corr()['relevance']
+        print("\nCorrelations with Relevance:")
         print(correlations)
         
-        return final_df
+        # Calculate feature statistics
+        feature_stats = features_df[['tfidf_similarity', 'spacy_similarity', 'attribute_matches']].describe()
+        print("\nFeature Statistics:")
+        print(feature_stats)
+        
+        return correlations, feature_stats
+    
+    def run_feature_engineering(self):
+        print("Starting feature engineering process...")
+        
+        # Calculate features
+        self.calculate_tfidf_similarity(self.train_df, self.product_descriptions_df)
+        self.calculate_spacy_similarity(self.train_df, self.product_descriptions_df)
+        self.calculate_attribute_matches(self.train_df, self.product_descriptions_df, self.attributes_df)
+        
+        # Evaluate features
+        correlations, feature_stats = self.evaluate_features(self.features_df)
+        
+        # Save features
+        print("\nSaving engineered features...")
+        self.features_df.to_csv('engineered_features.csv', index=False)
+        print("Features saved to engineered_features.csv")
+        
+        return self.features_df, correlations, feature_stats
 
 if __name__ == "__main__":
-    print("Starting feature engineering process...")
+    # Create feature engineering instance
     fe = FeatureEngineering()
-    features_df = fe.evaluate_features()
     
-    # Save features to CSV
-    print("\nSaving features to CSV...")
-    features_df.to_csv('engineered_features.csv', index=False)
-    print("\nFeatures saved to engineered_features.csv") 
+    # Run feature engineering
+    features_df, correlations, feature_stats = fe.run_feature_engineering() 
