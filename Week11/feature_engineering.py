@@ -24,6 +24,15 @@ class FeatureEngineering:
         self.attributes_df = self.dfs['attributes']
         self.product_descriptions_df = self.dfs['product_descriptions']
         
+        # Print data shapes and sample
+        print("\nData shapes:")
+        print(f"Training data: {self.train_df.shape}")
+        print(f"Attributes data: {self.attributes_df.shape}")
+        print(f"Product descriptions: {self.product_descriptions_df.shape}")
+        
+        print("\nSample of training data:")
+        print(self.train_df.head())
+        
         # Print number of unique queries
         unique_queries = self.train_df['search_term'].nunique()
         print(f"\nNumber of unique queries: {unique_queries}")
@@ -51,29 +60,30 @@ class FeatureEngineering:
         os.makedirs('intermediate_results', exist_ok=True)
     
     def prepare_product_text(self, product_id):
-        # Get product description
-        description = self.product_descriptions_df[
-            self.product_descriptions_df['product_uid'] == product_id
-        ]['product_description'].iloc[0]
-        
-        # Get product attributes
-        attributes = self.attributes_df[
-            self.attributes_df['product_uid'] == product_id
-        ]
-        
-        # Combine description and attributes
-        attribute_text = ' '.join([
-            f"{row['name']} {row['value']}"
-            for _, row in attributes.iterrows()
-        ])
-        
-        return f"{description} {attribute_text}"
+        try:
+            # Get product description
+            description = self.product_descriptions_df[
+                self.product_descriptions_df['product_uid'] == product_id
+            ]['product_description'].iloc[0]
+            
+            # Get product attributes
+            attributes = self.attributes_df[
+                self.attributes_df['product_uid'] == product_id
+            ]
+            
+            # Combine description and attributes
+            attribute_text = ' '.join([
+                f"{row['name']} {row['value']}"
+                for _, row in attributes.iterrows()
+            ])
+            
+            return f"{description} {attribute_text}"
+        except Exception as e:
+            print(f"Error preparing text for product {product_id}: {str(e)}")
+            return ""
     
     def calculate_tfidf_similarity(self, queries, products, batch_size=100):
         print("Calculating TF-IDF similarities...")
-        # Fit TF-IDF vectorizer on all product texts
-        all_product_texts = [self.prepare_product_text(pid) for pid in products['product_uid'].unique()]
-        self.tfidf.fit(all_product_texts)
         
         # Process queries in batches
         for i in tqdm(range(0, len(queries), batch_size), desc="Processing TF-IDF batches"):
@@ -84,7 +94,8 @@ class FeatureEngineering:
             query_texts = batch_queries['search_term'].tolist()
             product_texts = [self.prepare_product_text(pid) for pid in batch_products['product_uid']]
             
-            # Transform texts to TF-IDF vectors
+            # Fit and transform for this batch
+            self.tfidf.fit(query_texts + product_texts)
             query_vectors = self.tfidf.transform(query_texts)
             product_vectors = self.tfidf.transform(product_texts)
             
@@ -93,16 +104,25 @@ class FeatureEngineering:
             
             # Update the main DataFrame with calculated similarities
             for idx, (_, row) in enumerate(batch_queries.iterrows()):
-                product_idx = batch_products[batch_products['product_uid'] == row['product_uid']].index[0]
-                self.features_df.loc[
-                    (self.features_df['search_term'] == row['search_term']) & 
-                    (self.features_df['product_uid'] == row['product_uid']),
-                    'tfidf_similarity'
-                ] = similarities[idx, product_idx]
+                try:
+                    product_idx = batch_products[batch_products['product_uid'] == row['product_uid']].index[0]
+                    similarity = similarities[idx, product_idx]
+                    self.features_df.loc[
+                        (self.features_df['search_term'] == row['search_term']) & 
+                        (self.features_df['product_uid'] == row['product_uid']),
+                        'tfidf_similarity'
+                    ] = similarity
+                except Exception as e:
+                    print(f"Error updating TF-IDF similarity for query {row['search_term']} and product {row['product_uid']}: {str(e)}")
             
             # Clear memory
             del query_vectors, product_vectors, similarities
             gc.collect()
+            
+            # Print progress
+            if i % 1000 == 0:
+                print(f"\nProcessed {i} queries. Current batch statistics:")
+                print(self.features_df['tfidf_similarity'].describe())
     
     def calculate_spacy_similarity(self, queries, products, batch_size=50):
         print("Calculating SpaCy similarities...")
@@ -113,29 +133,41 @@ class FeatureEngineering:
             # Calculate similarities
             similarities = []
             for _, row in batch.iterrows():
-                query = row['search_term']
-                product_id = row['product_uid']
-                product_text = self.prepare_product_text(product_id)
-                
-                # Process texts with spaCy
-                query_doc = self.nlp(query)
-                product_doc = self.nlp(product_text)
-                
-                # Calculate similarity
-                similarity = query_doc.similarity(product_doc)
-                similarities.append(similarity)
+                try:
+                    query = row['search_term']
+                    product_id = row['product_uid']
+                    product_text = self.prepare_product_text(product_id)
+                    
+                    # Process texts with spaCy
+                    query_doc = self.nlp(query)
+                    product_doc = self.nlp(product_text)
+                    
+                    # Calculate similarity
+                    similarity = query_doc.similarity(product_doc)
+                    similarities.append(similarity)
+                except Exception as e:
+                    print(f"Error calculating SpaCy similarity for query {query} and product {product_id}: {str(e)}")
+                    similarities.append(0.0)
             
             # Update the main DataFrame with calculated similarities
             for idx, (_, row) in enumerate(batch.iterrows()):
-                self.features_df.loc[
-                    (self.features_df['search_term'] == row['search_term']) & 
-                    (self.features_df['product_uid'] == row['product_uid']),
-                    'spacy_similarity'
-                ] = similarities[idx]
+                try:
+                    self.features_df.loc[
+                        (self.features_df['search_term'] == row['search_term']) & 
+                        (self.features_df['product_uid'] == row['product_uid']),
+                        'spacy_similarity'
+                    ] = similarities[idx]
+                except Exception as e:
+                    print(f"Error updating SpaCy similarity for query {row['search_term']} and product {row['product_uid']}: {str(e)}")
             
             # Clear memory
             del similarities
             gc.collect()
+            
+            # Print progress
+            if i % 1000 == 0:
+                print(f"\nProcessed {i} queries. Current batch statistics:")
+                print(self.features_df['spacy_similarity'].describe())
     
     def calculate_attribute_matches(self, queries, products, attributes, batch_size=100):
         print("Calculating attribute matches...")
@@ -146,29 +178,41 @@ class FeatureEngineering:
             # Calculate matches
             matches = []
             for _, row in batch.iterrows():
-                query = row['search_term'].lower()
-                product_id = row['product_uid']
-                
-                # Get product attributes
-                product_attrs = attributes[attributes['product_uid'] == product_id]
-                
-                # Count matches in attribute names and values
-                name_matches = sum(1 for name in product_attrs['name'] if any(term in name.lower() for term in query.split()))
-                value_matches = sum(1 for value in product_attrs['value'] if any(term in str(value).lower() for term in query.split()))
-                
-                matches.append(name_matches + value_matches)
+                try:
+                    query = row['search_term'].lower()
+                    product_id = row['product_uid']
+                    
+                    # Get product attributes
+                    product_attrs = attributes[attributes['product_uid'] == product_id]
+                    
+                    # Count matches in attribute names and values
+                    name_matches = sum(1 for name in product_attrs['name'] if any(term in name.lower() for term in query.split()))
+                    value_matches = sum(1 for value in product_attrs['value'] if any(term in str(value).lower() for term in query.split()))
+                    
+                    matches.append(name_matches + value_matches)
+                except Exception as e:
+                    print(f"Error calculating attribute matches for query {query} and product {product_id}: {str(e)}")
+                    matches.append(0)
             
             # Update the main DataFrame with calculated matches
             for idx, (_, row) in enumerate(batch.iterrows()):
-                self.features_df.loc[
-                    (self.features_df['search_term'] == row['search_term']) & 
-                    (self.features_df['product_uid'] == row['product_uid']),
-                    'attribute_matches'
-                ] = matches[idx]
+                try:
+                    self.features_df.loc[
+                        (self.features_df['search_term'] == row['search_term']) & 
+                        (self.features_df['product_uid'] == row['product_uid']),
+                        'attribute_matches'
+                    ] = matches[idx]
+                except Exception as e:
+                    print(f"Error updating attribute matches for query {row['search_term']} and product {row['product_uid']}: {str(e)}")
             
             # Clear memory
             del matches
             gc.collect()
+            
+            # Print progress
+            if i % 1000 == 0:
+                print(f"\nProcessed {i} queries. Current batch statistics:")
+                print(self.features_df['attribute_matches'].describe())
     
     def evaluate_features(self, features_df):
         print("\nFeature Evaluation:")
