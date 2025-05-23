@@ -41,12 +41,10 @@ def analyze_data():
     plt.close()
     
     # 6. Top-5 most occurring brand names
-    # First, let's see what attribute names might contain brand information
     brand_related_attributes = attributes_df[attributes_df['name'].str.contains('brand|manufacturer|maker', case=False, na=False)]
     print("\nSample of brand-related attributes:")
     print(brand_related_attributes[['name', 'value']].head(10))
     
-    # Count occurrences of each brand
     brand_counts = brand_related_attributes['value'].value_counts().head(6)
     print("\n6. Top-5 most occurring brand names:")
     for brand, count in brand_counts.items():
